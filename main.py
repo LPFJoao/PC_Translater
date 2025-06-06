@@ -9,7 +9,7 @@ if not TOKEN:
     raise RuntimeError("Set DISCORD_TOKEN in your environment!")
 
 # Make sure this matches your category’s ID exactly:
-AUTO_CATEGORY_IDS = {1380497765414604884}
+AUTO_CATEGORY_IDS = {1380497681688035450}
 
 async def detect_language(text: str) -> str:
     detect_url = "https://libretranslate.com/detect"
