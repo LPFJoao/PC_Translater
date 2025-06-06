@@ -17,7 +17,7 @@ async def translate_text(text: str, target: str = "en") -> str:
     If the API returns a 200, we return the translated text.
     Otherwise we raise RuntimeError.
     """
-    url = "https://translate.argosopentech.com/translate"
+    url = "https://translate.flossboxin.org.in/translate"
     payload = {
         "q": text,
         "source": "auto",
