@@ -26,7 +26,7 @@ SUPPORTED_LANGS = {
 }
 
 async def translate_text(text: str, source: str, target: str) -> str:
-    url = "https://libretranslate.de/translate"
+    url = "https://libretranslate.com/translate"
     payload = {"q": text, "source": source, "target": target, "format": "text"}
     headers = {"Content-Type": "application/json"}
     async with aiohttp.ClientSession() as session:
