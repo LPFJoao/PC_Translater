@@ -11,7 +11,7 @@ if not TOKEN:
 #  TWO category IDs that should auto-translate every message to English
 #  Replace these numeric IDs with your own category IDs exactly as shown
 # ──────────────────────────────────────────────────────────────────────────────
-AUTO_CATEGORY_IDS = {1379572567332880464, 1353332512629194804}
+AUTO_CATEGORY_IDS = {1380497681688035450}
 
 SUPPORTED_LANGS = {
     "en": "English",
