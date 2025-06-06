@@ -8,19 +8,11 @@ TOKEN = os.getenv("DISCORD_TOKEN")
 if not TOKEN:
     raise RuntimeError("Set DISCORD_TOKEN in your environment!")
 
-# ──────────────────────────────────────────────────────────────────────────────
-#  TWO category IDs whose messages should be auto‐translated into English
-# ──────────────────────────────────────────────────────────────────────────────
+# Make sure this matches your category’s ID exactly:
 AUTO_CATEGORY_IDS = {1380497765414604884}
 
 async def detect_language(text: str) -> str:
-    """
-    Call LibreTranslate’s /detect endpoint correctly, passing "q" as a list.
-    The API returns a list‐of‐lists, where each inner list is the detection results
-    for one input string. We only send a single string at a time, so we look at data[0][0].
-    """
     detect_url = "https://libretranslate.com/detect"
-    # NOTE: the API expects "q" to be a LIST of strings, even if we only detect one.
     payload = {"q": [text]}
     headers = {"Content-Type": "application/json"}
     timeout = aiohttp.ClientTimeout(total=5)
@@ -28,42 +20,19 @@ async def detect_language(text: str) -> str:
     async with aiohttp.ClientSession(timeout=timeout) as session:
         async with session.post(detect_url, json=payload, headers=headers) as resp:
             if resp.status != 200:
-                raise RuntimeError(f"Language‐detection API returned HTTP {resp.status}")
+                raise RuntimeError(f"Language detection HTTP {resp.status}")
             data = await resp.json()
-            #
-            # Example return value if you sent ["Hola"] might look like:
-            # [
-            #   [
-            #     { "language": "es", "confidence": 0.99 },
-            #     { "language": "pt", "confidence": 0.01 }
-            #   ]
-            # ]
-            #
-            # data is a list (one element per input). Inside data[0] is a list of
-            # language‐objects sorted by confidence. We want data[0][0]["language"].
-            if (
-                not isinstance(data, list)
-                or len(data) == 0
-                or not isinstance(data[0], list)
-                or len(data[0]) == 0
-            ):
-                raise RuntimeError("Language‐detection returned no results")
-            top = data[0][0]
-            return top.get("language", "")
+            if not (isinstance(data, list) and data and isinstance(data[0], list) and data[0]):
+                raise RuntimeError("Language detection returned no results")
+            return data[0][0].get("language", "")
 
 async def translate_text(text: str, source: str, target: str) -> str:
-    """
-    Call LibreTranslate’s /translate endpoint with a 10s timeout + one retry.
-    Raises RuntimeError if both attempts fail.
-    """
     url = "https://libretranslate.com/translate"
     payload = {
         "q": text,
         "source": source,
         "target": target,
         "format": "text"
-        # If you acquire an API key for libretranslate.com, add:
-        # "api_key": os.getenv("LIBRETRANSLATE_API_KEY")
     }
     headers = {"Content-Type": "application/json"}
     timeout = aiohttp.ClientTimeout(total=10)
@@ -87,32 +56,42 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 
 @bot.event
 async def on_message(message: discord.Message):
+    print(f"[on_message] Author: {message.author}, Channel: #{message.channel.name}, Content: {message.content!r}")
+
     if message.author.bot:
+        print("[on_message] → Author is a bot; ignoring.")
         return
 
     category = message.channel.category
-    if category and category.id in AUTO_CATEGORY_IDS:
-        try:
-            # 1) Detect the language of the incoming message (as a list of one string)
-            lang = await detect_language(message.content)
+    if not category:
+        print("[on_message] → Channel has no category; ignoring.")
+        await bot.process_commands(message)
+        return
 
-            # 2) If it’s already English, do nothing
-            if lang == "en":
-                return
+    print(f"[on_message] → Category name: {category.name}, Category ID: {category.id}")
 
-            # 3) Otherwise translate from that language → English
+    if category.id not in AUTO_CATEGORY_IDS:
+        print(f"[on_message] → Category ID {category.id} NOT in AUTO_CATEGORY_IDS; ignoring.")
+        await bot.process_commands(message)
+        return
+
+    # If we reach here, we know the message is in the correct category
+    print("[on_message] → This is a monitored category. Attempting detect/translate…")
+    try:
+        lang = await detect_language(message.content)
+        print(f"[on_message] → detect_language returned: {lang}")
+
+        if lang == "en":
+            print("[on_message] → Message is already English; skipping translation.")
+        else:
             translated = await translate_text(message.content, lang, "en")
+            print(f"[on_message] → Translated text: {translated}")
             await message.reply(f"🇬🇧 (en): {translated}", mention_author=False)
+            print("[on_message] → Replied with translation.")
+    except Exception as e:
+        print(f"[on_message] → ERROR during detect/translate: {e}")
+        await message.reply(f"❌ Auto-translate failed: {e}", mention_author=False)
 
-        except Exception as e:
-            # If detection or translation fails, we send a single error reply
-            await message.reply(
-                f"❌ Auto‐translate failed: {e}\n"
-                "Please try again later or check back in a bit.",
-                mention_author=False
-            )
-
-    # Make sure any other commands (if added later) still work
     await bot.process_commands(message)
 
 @bot.event
